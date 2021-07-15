@@ -6,13 +6,16 @@ import 'package:discussion/tools/app_constants.dart';
 import 'package:discussion/tools/design_utils.dart';
 import 'package:discussion/views/prefrences_views.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-
+import 'dart:convert';
 class HomeScreen extends StatefulWidget {
   @override
   State<StatefulWidget> createState() {
@@ -20,7 +23,9 @@ class HomeScreen extends StatefulWidget {
   }
 }
 
-class HomeScreenState extends State<HomeScreen> {
+var globalMessage;
+FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+class HomeScreenState extends State<HomeScreen>  with WidgetsBindingObserver  {
   ProfileHelper profileHelper = ProfileHelper();
   TopicHelper topicHelper = TopicHelper();
   var profile;
@@ -49,18 +54,103 @@ class HomeScreenState extends State<HomeScreen> {
 
   @override
   void initState() {
+    WidgetsBinding.instance.addObserver(this);
     super.initState();
 
     _getProfile();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       Provider.of<ProfileProvider>(context, listen: false)
           .getCurrentSub();
+
     });
+
+    try {
+      updateDevice();
+    } catch (e) {
+      throw e;
+    }
+
+    try {
+      handleFirebase(context);
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  handleFirebase(context) async {
+    await Firebase.initializeApp();
+    //final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+    //String fcmDeviceId=await _firebaseMessaging.getToken();
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      //onMessage(message,context);
+      print("onMessage");
+      print(message.data);
+      print("channel_id:${message.data['channel_id']}");
+      //print(message.notification.body);
+     // print(message.notification.title);
+      //var info = json.decode(message.data['u_id']);
+      showNotification(message,null,(String val)async{
+        print("bodyyyyyyyyyyyyyy$val");
+        if(message.data['app_id'] != null){
+          Get.to(() => ExampleCall(
+              parentContext: context,
+              appId: message.data['app_id'].toString(),
+              channelId: message.data['channel_id'].toString(),
+              token: message.data['agora_token'].toString(),
+              uid: int.parse(message.data['u_id'].toString()),
+              topic: 1,
+              alwaysOpen:true
+          )).then((value) {Provider.of<ProfileProvider>(Get.context, listen: false).showLikeDialog(context);});
+
+        }
+        return val;
+        },Get.context);
+    });
+
+    FirebaseMessaging.onBackgroundMessage(myBackgroundMessageHandler);
+    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+      print("onMessageOpenedApp$message");
+      if(message.data['app_id'] != null){
+        //var info = json.decode(message.data['u_id']);
+        Get.to(() => ExampleCall(
+            parentContext: Get.context,
+            appId: message.data['app_id'].toString(),
+            channelId: message.data['channel_id'].toString(),
+            token: message.data['agora_token'].toString(),
+            uid: message.data['u_id'],
+            topic: 1,
+            alwaysOpen:true
+        )).then((value) {Provider.of<ProfileProvider>(Get.context, listen: false).showLikeDialog(Get.context);});
+
+      }
+    });
+    print("myBackgroundMessageHandler");
+    //print(fcmDeviceId);
+    print("#######");
+    //return fcmDeviceId;
+  }
+
+  updateDevice() async {
+    print("updateDevice");
+    await Firebase.initializeApp();
+    final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+    var deviceId = await _firebaseMessaging.getToken();
+    print("deviceId#$deviceId");
+    if (deviceId != null) {
+      TopicHelper.updateFcmToken(deviceId);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
+
+
+    double width = MediaQuery
+        .of(context)
+        .size
+        .width;
+
+
     return Scaffold(
       backgroundColor: white,
       appBar: AppBar(
@@ -78,22 +168,22 @@ class HomeScreenState extends State<HomeScreen> {
       body: _isLoad == true
           ? AppLoading()
           : ListView(
-              children: [
-                SizedBox(
-                  height: ScreenUtil().setHeight(50),
-                ),
-                _profileInfo(),
-                _categoriesTitle(),
-                SizedBox(
-                  height: ScreenUtil().setHeight(12),
-                ),
-                LimitedBox(
-                  maxHeight: ScreenUtil().setHeight(100000),
-                  maxWidth: width,
-                  child: _categoriesList(),
-                ),
-              ],
-            ),
+        children: [
+          SizedBox(
+            height: ScreenUtil().setHeight(50),
+          ),
+          _profileInfo(),
+          _categoriesTitle(),
+          SizedBox(
+            height: ScreenUtil().setHeight(12),
+          ),
+          LimitedBox(
+            maxHeight: ScreenUtil().setHeight(100000),
+            maxWidth: width,
+            child: _categoriesList(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -132,7 +222,7 @@ class HomeScreenState extends State<HomeScreen> {
                 alignment: FractionalOffset.bottomCenter,
                 children: [
                   GestureDetector(
-                    onTap: () async{
+                    onTap: () async {
                       /*if(Provider.of<ProfileProvider>(context, listen: false).subscription==null){
                         var info=await topicHelper.getAccessTokn(topic[index]["id"], "3");
                         Get.to(() => ExampleCall(
@@ -151,7 +241,6 @@ class HomeScreenState extends State<HomeScreen> {
                         }*/
                       topicId = topic[index]["id"];
                       _showCupertino();
-
                     },
                     child: Card(
                       clipBehavior: Clip.antiAliasWithSaveLayer,
@@ -245,16 +334,27 @@ class HomeScreenState extends State<HomeScreen> {
         children: [
           Column(
             children: [
-      Provider.of<ProfileProvider>(context, listen: false).subscription == null?
-      Container():
-      Provider.of<ProfileProvider>(context, listen: false).subscription.id != 4?
-      SvgPicture.asset(
-        Provider.of<ProfileProvider>(context, listen: false).subscription.id==3?crown:
-        Provider.of<ProfileProvider>(context, listen: false).subscription.id == 2?stars:star,
-        height: ScreenUtil().setHeight(25),
-        fit: BoxFit.contain,
-      ):Image.asset(stars3,height: ScreenUtil().setHeight(25),
-        fit: BoxFit.contain,),
+              Provider
+                  .of<ProfileProvider>(context, listen: false)
+                  .subscription == null ?
+              Container() :
+              Provider
+                  .of<ProfileProvider>(context, listen: false)
+                  .subscription
+                  .id != 4 ?
+              SvgPicture.asset(
+                Provider
+                    .of<ProfileProvider>(context, listen: false)
+                    .subscription
+                    .id == 3 ? crown :
+                Provider
+                    .of<ProfileProvider>(context, listen: false)
+                    .subscription
+                    .id == 2 ? stars : star,
+                height: ScreenUtil().setHeight(25),
+                fit: BoxFit.contain,
+              ) : Image.asset(stars3, height: ScreenUtil().setHeight(25),
+                fit: BoxFit.contain,),
               Container(
                 height: ScreenUtil().setWidth(100),
                 width: ScreenUtil().setWidth(100),
@@ -262,12 +362,14 @@ class HomeScreenState extends State<HomeScreen> {
                   image: DecorationImage(
                     image: profile["image"] != null
                         ? NetworkImage(
-                            profile["image"].toString().contains("http")?profile["image"]:serverdomain+"/"+profile["image"],
-                          )
+                      profile["image"].toString().contains("http")
+                          ? profile["image"]
+                          : serverdomain + "/" + profile["image"],
+                    )
                         : profile["gender"]["name"] == "Male" ||
-                                profile["gender"]["name"] == "ذكر"
-                            ? AssetImage(boy)
-                            : AssetImage(girl),
+                        profile["gender"]["name"] == "ذكر"
+                        ? AssetImage(boy)
+                        : AssetImage(girl),
                     fit: BoxFit.fill,
                   ),
                   color: secColor.withOpacity(0.2),
@@ -292,17 +394,17 @@ class HomeScreenState extends State<HomeScreen> {
                   profile["bio"] == null
                       ? Container()
                       : LimitedBox(
-                          maxHeight: ScreenUtil().setHeight(100),
-                          maxWidth: ScreenUtil().setWidth(100),
-                          child: Text('${profile["bio"]}',
-                              softWrap: true,
-                              overflow: TextOverflow.visible,
-                              style: TextStyle(
-                                color: mainColor,
-                                fontFamily: mainFont,
-                                fontSize: infoFontSize,
-                              )),
-                        ),
+                    maxHeight: ScreenUtil().setHeight(100),
+                    maxWidth: ScreenUtil().setWidth(100),
+                    child: Text('${profile["bio"]}',
+                        softWrap: true,
+                        overflow: TextOverflow.visible,
+                        style: TextStyle(
+                          color: mainColor,
+                          fontFamily: mainFont,
+                          fontSize: infoFontSize,
+                        )),
+                  ),
                 ],
               ),
               SizedBox(
@@ -356,32 +458,188 @@ class HomeScreenState extends State<HomeScreen> {
   _showCupertino() {
     return showCupertinoModalPopup(
       context: Get.context,
-      builder: (context) => Material(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(25),
-            topRight: Radius.circular(25),
-          ),
-        ),
-        child: CupertinoActionSheet(
-          title: Text(
-              Provider.of<ProfileProvider>(context, listen: false).subscription != null?tr("choose_side")
-                  :tr("PleaseSubscrbeToSelectGender"),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: mainColor,
-              fontFamily: mainFont,
-              fontSize: fontSize,
-              fontWeight: FontWeight.w700,
+      builder: (context) =>
+          Material(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(25),
+                topRight: Radius.circular(25),
+              ),
+            ),
+            child: CupertinoActionSheet(
+              title: Text(
+                true ? tr("choose_side")
+                    : tr("PleaseSubscrbeToSelectGender"),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: mainColor,
+                  fontFamily: mainFont,
+                  fontSize: fontSize,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              actions: [
+                PrefrencesView(
+                  topicID: topicId,
+                ),
+              ],
             ),
           ),
-          actions: [
-            PrefrencesView(
-              topicID: topicId,
-            ),
-          ],
-        ),
-      ),
     );
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    var isInForeground = state == AppLifecycleState.resumed;
+
+    print("APP IS IN FOREGROUND == $isInForeground");
+    if(isInForeground) {
+      checkIfNo();
+    }
+  }
+
+  void dispose() {
+    print("#####dispose");
+
+      WidgetsBinding.instance.removeObserver(this);
+
+    }
+
+
+}
+
+showNotification(message, notificationDetails, selectNotification, context) async {
+  flutterLocalNotificationsPlugin =
+  FlutterLocalNotificationsPlugin();
+// initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
+  AndroidInitializationSettings initializationSettingsAndroid =
+  AndroidInitializationSettings('mipmap/launcher_icon');
+
+  IOSInitializationSettings initializationSettingsIOS =
+  IOSInitializationSettings(
+      onDidReceiveLocalNotification: onDidReceiveLocalNotification);
+
+  MacOSInitializationSettings initializationSettingsMacOS =
+  MacOSInitializationSettings();
+
+  final InitializationSettings initializationSettings =
+  InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+      macOS: initializationSettingsMacOS);
+
+  await flutterLocalNotificationsPlugin.initialize(
+    initializationSettings,
+    onSelectNotification: selectNotification,
+  );
+
+  const AndroidNotificationDetails androidPlatformChannelSpecifics =
+  AndroidNotificationDetails(
+      'your channel id', 'your channel name', 'your channel description',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false);
+
+
+  var details = NotificationDetails(android: androidPlatformChannelSpecifics);
+
+  var info = json.decode(message.data['user1']);
+  print(info);
+  flutterLocalNotificationsPlugin.show(
+      1,
+      "اتصال",
+      "${info[0]['name']} يتصل بك قم بالضغط حتى تتمكن من الرد عليه",
+      details,payload: "nnnnnnnnnnn");
+  // initialise the plugin. app_icon needs to be a added as a drawable resource to the Android head project
+}
+
+Future onDidReceiveLocalNotification(int id, String title, String body,
+    String payload) async {
+  print("onDidReceiveLocalNotification");
+// display a dialog with the notification details, tap ok to go to another page
+  showDialog(
+    context: Get.context,
+    builder: (BuildContext context) =>
+        CupertinoAlertDialog(
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              child: Text('Ok'),
+              onPressed: () async {
+/*Navigator.of(context, rootNavigator: true).pop();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SecondScreen(payload),
+                ),
+              );*/
+              },
+            )
+          ],
+        ),
+  );
+}
+
+Future<void> myBackgroundMessageHandler(RemoteMessage message) async {
+  // If you're going to use other Firebase services in the background, such as Firestore,
+  // make sure you call `initializeApp` before using other Firebase services.
+  //await Firebase.initializeApp();
+  print("onBackgroundMessage: $message");
+  /*var info = json.decode(message.data['u_id']);
+
+  showNotification(message,null,(String val)async{
+    print("baaaaaaaaabodyyyyyyyyyyyyyy$val");
+    globalMessage=message;
+    if(message.data['app_id'] != null){
+      Get.to(() => ExampleCall(
+          parentContext: Get.context,
+          appId: message.data['app_id'].toString(),
+          channelId: message.data['channel_id'].toString(),
+          token: message.data['agora_token'].toString(),
+          uid: info['id'],
+          topic: 1,
+          alwaysOpen:true
+      )).then((value) {Navigator.of(Get.context).pop();Provider.of<ProfileProvider>(Get.context, listen: false).showLikeDialog(Get.context);});
+
+    }
+    return val;
+  },Get.context);*/
+  //Provider.of<NotificationsProvider>(null,listen: false).increase();
+}
+
+checkIfNo()async{
+  print("globalMessage#$globalMessage");
+  /*flutterLocalNotificationsPlugin=FlutterLocalNotificationsPlugin();
+  flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails();
+  var notificationAppLaunchDetails = (await flutterLocalNotificationsPlugin.getNotificationAppLaunchDetails());
+  if(notificationAppLaunchDetails.didNotificationLaunchApp) {
+    print("LAUNCHED BY NOTIF");
+  if(globalMessage != null){
+
+
+
+
+  print(notificationAppLaunchDetails.payload);
+  var info = json.decode(globalMessage.data['u_id']);
+  if(globalMessage.data['app_id'] != null){
+    Get.to(() => ExampleCall(
+        parentContext: Get.context,
+        appId: globalMessage.data['app_id'].toString(),
+        channelId: globalMessage.data['channel_id'].toString(),
+        token: globalMessage.data['agora_token'].toString(),
+        uid: int.parse(info['id'].toString()),
+        topic: 1,
+        alwaysOpen:true
+    )).then((value) {Navigator.of(Get.context).pop();Provider.of<ProfileProvider>(Get.context, listen: false).showLikeDialog(Get.context);});
+
+  }
+  }
+  }
+  else {
+  print("NOT LAUNCHED BY NOTIF");
+  }*/
+
 }

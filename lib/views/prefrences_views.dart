@@ -1,4 +1,5 @@
 import 'package:discussion/models/prefrences_model.dart';
+import 'package:discussion/provider/dropdownbuttons_provider.dart';
 import 'package:discussion/provider/prefrences_provider.dart';
 import 'package:discussion/provider/profile_provider.dart';
 import 'package:discussion/screens/call_screens/call_screen.dart';
@@ -9,6 +10,7 @@ import 'package:discussion/src/call_sample/call_sample.dart';
 import 'package:discussion/tools/app_components.dart';
 import 'package:discussion/tools/app_constants.dart';
 import 'package:discussion/tools/design_utils.dart';
+import 'package:discussion/views/nations_viewsTmp.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -39,13 +41,14 @@ class _PrefrencesViewState extends State<PrefrencesView> {
         ],
       ));
     }else{
-      var info=await topicHelper.getAccessTokn(id, gendre);
+      var info=await topicHelper.getAccessTokn(id, gendre,Provider.of<NationProvider>(context, listen: false).selectedId);
       Get.to(() => ExampleCall(
           parentContext: context,
         appId: info['app_id'].toString(),
         channelId: info['channel_id'].toString(),
         token: info['agora_token'].toString(),
         uid: int.parse(info['u_id']),
+        topic: id,
         alwaysOpen:Provider.of<ProfileProvider>(context, listen: false).subscription!=null
       )).then((value) {Navigator.of(context).pop();Provider.of<ProfileProvider>(Get.context, listen: false).showLikeDialog(context);});
     }
@@ -94,7 +97,11 @@ class _PrefrencesViewState extends State<PrefrencesView> {
         width: width,
         child: Column(
           children: [
-            Expanded(
+            Provider.of<ProfileProvider>(context, listen: false).subscription !=null &&
+                (Provider.of<ProfileProvider>(context, listen: false).subscription.package_id == 3) ?
+            _nationButton():Container(),
+            SizedBox(
+              height: 150,
               child: ListView.builder(
                   clipBehavior: Clip.antiAliasWithSaveLayer,
                   itemCount: data.length,
@@ -104,7 +111,7 @@ class _PrefrencesViewState extends State<PrefrencesView> {
                       width: width,
                       height: ScreenUtil().setHeight(75),
                       child: CupertinoActionSheetAction(
-                        onPressed: Provider.of<ProfileProvider>(context, listen: false).subscription !=null?() {
+                        onPressed: true?() {
                           print('topic: ${widget.topicID}');
                           print('gendre: ${data[index].name}');
                           _postTopic(widget.topicID, data[index].name,true);
@@ -131,7 +138,7 @@ class _PrefrencesViewState extends State<PrefrencesView> {
                     );
                   }),
             ),
-            Provider.of<ProfileProvider>(context, listen: false).subscription == null?
+            false?
             Container(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -167,10 +174,31 @@ class _PrefrencesViewState extends State<PrefrencesView> {
                   ),
                 ],
               )
-            ):Container()
+            ):Container(),
+
           ],
         )
       );
     });
+  }
+
+  _nationButton() {
+    double width = MediaQuery.of(Get.context).size.width;
+    return Padding(
+        padding: EdgeInsets.only(
+          left: ScreenUtil().setWidth(35),
+          right: ScreenUtil().setWidth(35),
+        ),
+        child: Container(
+          width: width,
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.grey[300],
+              ),
+            ),
+          ),
+          child: NationDropdownTmp(),
+        ));
   }
 }

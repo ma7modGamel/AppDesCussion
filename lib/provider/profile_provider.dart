@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:discussion/models/subscription.dart';
 import 'package:discussion/provider/base_provider.dart';
+import 'package:discussion/screens/call_screens/example_call.dart';
 import 'package:discussion/screens/main_screens/profile_screen.dart';
 import 'package:discussion/screens/packages_screens/packages_screen.dart';
 import 'package:discussion/services/api_services/package_helper.dart';
 import 'package:discussion/services/api_services/profile_helper.dart';
+import 'package:discussion/services/api_services/topic_helper.dart';
 import 'package:discussion/tools/app_components.dart';
 import 'package:discussion/tools/app_constants.dart';
 import 'package:discussion/tools/design_utils.dart';
@@ -14,16 +16,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:provider/provider.dart';
 
 class ProfileProvider extends BaseProvider {
   ProfileHelper profileHelper = ProfileHelper();
   TextEditingController name = TextEditingController();
   TextEditingController bio = TextEditingController();
   bool callsLoading=true;
+  bool callersLoading=false;
   Subscription subscription;
   var currentIserId;
   var id;
   var calls=[];
+  var callers=[];
+  var callsTMP=[];
   ProfileProvider() {
     profileHelper.getProfile().whenComplete(() {
       print("errrrrrrrrrrr");
@@ -60,6 +66,7 @@ class ProfileProvider extends BaseProvider {
     var res=await ProfileHelper.getCalls(id);
     if(res != null && res['success']){
       calls=res['calls'];
+      callsTMP=res['calls'];
     }
     callsLoading=false;
     notifyListeners();
@@ -81,6 +88,21 @@ class ProfileProvider extends BaseProvider {
     subscription=await PackageHelper.getCurrentSub(id);
     notifyListeners();
   }
+
+  search(key)async{
+    if(key == null || key.toString().isEmpty){
+      calls=callsTMP.toList();
+    }else{
+      calls=callsTMP.where((element){
+        var anotherUser=element['firstuser']['id']!=id?element['firstuser']:element['seconduser'];
+        if(anotherUser != null && anotherUser['name'].toString().toLowerCase().contains(key.toString().toLowerCase())){
+          return true;
+        }
+        return false;
+      }).toList();
+    }
+    notifyListeners();
+}
 
   showLikeDialog(context)async{
     print("####");
@@ -151,6 +173,40 @@ class ProfileProvider extends BaseProvider {
         ],
       ));
     }
+  }
+
+  getCallers(String key)async{
+    callers=[];
+    callersLoading=true;
+    notifyListeners();
+    var res=await TopicHelper.search(key);
+    if(res != null){
+      callers=res;
+    }
+    callersLoading=false;
+    notifyListeners();
+  }
+
+  call(String userId,context)async{
+    var res=await TopicHelper.call(userId, "1");
+    print("channel_id:${res['channel_id']}");
+    if(res['app_id'] != null){
+      Get.to(() => ExampleCall(
+          parentContext: context,
+          appId: res['app_id'].toString(),
+          channelId: res['channel_id'].toString(),
+          token: res['agora_token'].toString(),
+          uid: int.parse(res['u_id'].toString()),
+          alwaysOpen:Provider.of<ProfileProvider>(context, listen: false).subscription!=null
+      )).then((value) {Provider.of<ProfileProvider>(Get.context, listen: false).showLikeDialog(context);});
+
+    }
+  }
+
+  clean(){
+        callersLoading=false;
+        callers=[];
+        notifyListeners();
   }
 }
 

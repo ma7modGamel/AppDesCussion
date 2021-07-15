@@ -92,7 +92,7 @@ class LoginScreenState extends State<LoginScreen> {
                 borderColor: Colors.grey[300],
                 prefixImage: lock,
                 prefixSize: 20,
-                keyboardType: TextInputType.phone,
+                keyboardType: TextInputType.text,
                 validator: (String value) {
                   if (value.isEmpty) {
                     return tr("validation_message");

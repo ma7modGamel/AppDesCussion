@@ -71,6 +71,7 @@
     "shareApp": "Welcome You can install Discussion App from below link \n and Know people with your interests \n{0}",
     "noCalls":"No Calls Found",
     "send":"Send",
-    "rememberMessage":"Link sent to your email to change the password"
+    "rememberMessage":"Link sent to your email to change the password",
+    "noSearch":"No Search Results"
 
 }

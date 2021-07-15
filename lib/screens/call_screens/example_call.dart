@@ -3,6 +3,7 @@ import 'package:discussion/provider/profile_provider.dart';
 import 'package:discussion/screens/packages_screens/packages_screen.dart';
 import 'package:discussion/services/api_services/package_helper.dart';
 import 'package:discussion/services/api_services/profile_helper.dart';
+import 'package:discussion/services/api_services/topic_helper.dart';
 import 'package:discussion/tools/app_components.dart';
 import 'package:discussion/tools/design_utils.dart';
 import 'package:flutter/foundation.dart';
@@ -52,8 +53,12 @@ class _ExampleCallState extends State<ExampleCall> {
 
   @override
   void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.channelId);
+    try {
+      super.initState();
+      _controller = TextEditingController(text: widget.channelId);
+    }catch(e){
+
+    }
     this._initEngine();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       Provider.of<ProfileProvider>(context, listen: false).currentIserId=null;
@@ -63,9 +68,18 @@ class _ExampleCallState extends State<ExampleCall> {
 
   @override
   void dispose() {
-    super.dispose();
+    print("##dispose");
+    //super.dispose();
     try {
+      _engine?.leaveChannel();
       _engine?.destroy();
+
+    }catch(e){
+
+    }
+    super.dispose();
+
+    try{
       if (stopWatchTimer != null) {
         stopWatchTimer.dispose();
       }
@@ -75,12 +89,26 @@ class _ExampleCallState extends State<ExampleCall> {
 
     print("ttttttt");
     //showLikeDialog();
-    if(currentIserId != null){
+    try{
+    if(currentIserId != null) {
       PackageHelper.endCall(widget.channelId, _playerTxt);
+    }
+  }catch(e){
+    }
+    try{
+      TopicHelper.decreamentTopic(widget.topic.toString());
+    }catch(e){
+
     }
   }
 
   _initEngine() async {
+    print("_initEngine");
+    print("topic:${widget.topic}");
+    print("uid:${widget.uid}");
+    print("channelId:${widget.channelId}");
+    print("token:${widget.token}");
+    print("appId:${widget.appId}");
     _engine =
     await RtcEngine.create(widget.appId);
     this._addListeners();
@@ -89,6 +117,7 @@ class _ExampleCallState extends State<ExampleCall> {
     await _engine.setChannelProfile(ChannelProfile.LiveBroadcasting);
     await _engine.setClientRole(ClientRole.Broadcaster);
     _joinChannel();
+    print("_initEngine");
   }
 
   _addListeners() {
@@ -142,6 +171,7 @@ class _ExampleCallState extends State<ExampleCall> {
           isJoined = false;
           status="noCaller".tr();
         });
+        Navigator.pop(context);
         },
       leaveChannel: (stats) async {
         log('leaveChannel ${stats.toJson()}');
@@ -165,7 +195,7 @@ class _ExampleCallState extends State<ExampleCall> {
     await _engine
         ?.joinChannel(widget.token, widget.channelId, null, widget.uid)
         ?.catchError((onError) {
-      print('error ${onError.toString()}');
+      print('errorvvv ${onError.toString()}');
     });
   }
 

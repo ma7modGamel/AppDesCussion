@@ -1,5 +1,5 @@
 import 'package:discussion/provider/profile_provider.dart';
-import 'package:discussion/screens/main_screens/search_callers.dart';
+import 'package:discussion/tools/app_components.dart';
 import 'package:discussion/tools/app_constants.dart';
 import 'package:discussion/tools/design_utils.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -10,12 +10,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 
-class AllCallsScreen extends StatefulWidget {
+class SearchScreen extends StatefulWidget {
   @override
-  _AllCallsScreenState createState() => _AllCallsScreenState();
+  _SearchScreenState createState() => _SearchScreenState();
 }
 
-class _AllCallsScreenState extends State<AllCallsScreen> {
+class _SearchScreenState extends State<SearchScreen> {
 
   TextEditingController _searchController = TextEditingController();
   ProfileProvider profileProvider;
@@ -23,19 +23,16 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
   @override
   void initState() {
 
-    _searchController.addListener(() {
-      profileProvider.search(_searchController.text);
+
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+
     });
-    /*WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-      Provider.of<ProfileProvider>(context, listen: true)
-          .getCalls();
-    });*/
   }
 
 
   @override
   void dispose() {
-    profileProvider.search(null);
+    //profileProvider.search(null);
   }
 
   @override
@@ -64,28 +61,45 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
       body: ListView(
         children: [
 
-          Provider.of<ProfileProvider>(context, listen: false).subscription != null && (Provider.of<ProfileProvider>(context, listen: false).subscription.package_id==3 || Provider.of<ProfileProvider>(context, listen: false).subscription.package_id==4)?Container(
+          Provider.of<ProfileProvider>(context, listen: false).subscription != null?Container(
             margin: EdgeInsets.only(top: 20),
-            child:InkWell(
-              child: _searchBar(),
-              onTap: (){
-                profileProvider.clean();
-                Navigator.of(context).push(MaterialPageRoute(builder: (_)=>SearchScreen()));
-              },
-            )
+            child:_searchBar()
           ):Container(),
           SizedBox(
             height: ScreenUtil().setHeight(20),
           ),
-          profileProvider.callsLoading?
+          Container(
+            margin: EdgeInsets.only(bottom: 12,right: MediaQuery.of(context).size.width*.27,left: MediaQuery.of(context).size.width*.27),
+            child: SizedBox(
+
+              width: MediaQuery.of(context).size.width*.27,
+              child: RaisedButton(onPressed: (){
+                if(_searchController.text.isNotEmpty)
+                  profileProvider.getCallers(_searchController.text);
+              },
+
+                child:Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    Text(tr("searchNow"),
+                      style: TextStyle(fontWeight: FontWeight.normal,fontSize: 15,fontFamily: mainFont,color: Colors.white),).tr(),
+                  ],
+                )
+                ,padding: EdgeInsets.all(0),color: mainColor,shape: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(17)),
+                    borderSide: BorderSide.none),),
+            ),
+          ),
+          profileProvider.callersLoading?
           AppLoading():
-              profileProvider.calls == null || profileProvider.calls.length<=0?
+              profileProvider.callers == null || profileProvider.callers.length<=0?
                   Center(
                     child: Container(
                       margin: EdgeInsets.only(top: MediaQuery.of(context).size.height/3),
                       child: new Center(
                         child: Text(
-                          tr("noCalls"),
+                          tr("noSearch"),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               fontFamily: mainFont,
@@ -111,7 +125,6 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
       child: Container(
         height: ScreenUtil().setHeight(40),
         child: TextFormField(
-          enabled: false,
           controller: _searchController,
           style:
               TextStyle(color: black, fontFamily: mainFont, fontSize: fontSize),
@@ -137,10 +150,6 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
                 borderRadius:
                     BorderRadius.all(Radius.circular(ScreenUtil().radius(20))),
               ),
-              disabledBorder:OutlineInputBorder(
-          borderSide: BorderSide(
-          color: Colors.grey[300],
-          )),
               filled: true,
               fillColor: Colors.grey[300],
               hintText: tr("search"),
@@ -165,12 +174,11 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
       maxHeight: ScreenUtil().setHeight(100000),
       child: ListView.builder(
         clipBehavior: Clip.antiAliasWithSaveLayer,
-        itemCount: profileProvider.calls.length,
+        itemCount: profileProvider.callers.length,
         physics: ScrollPhysics(),
         shrinkWrap: true,
         scrollDirection: Axis.vertical,
         itemBuilder: (BuildContext context, int index) {
-          var anotherUser=profileProvider.calls[index]['firstuser']['id']!=profileProvider.id?profileProvider.calls[index]['firstuser']:profileProvider.calls[index]['seconduser'];
           return InkWell(
             child: Padding(
               padding: EdgeInsets.only(
@@ -198,26 +206,17 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             CircleAvatar(
-                              backgroundImage: anotherUser["image"] != null?NetworkImage(
-                    anotherUser["image"].toString().contains("http")?anotherUser["image"]:serverdomain+"/"+anotherUser["image"],
+                              backgroundImage: profileProvider.callers[index]["image"] != null?NetworkImage(
+                                profileProvider.callers[index]["image"].contains("http")?profileProvider.callers[index]["image"]:serverdomain+"/"+profileProvider.callers[index]["image"],
                   )
-                        : anotherUser["gender_id"] == 1 ? AssetImage(boy)
+                        : profileProvider.callers[index]["gender"]['id'] == 1 ? AssetImage(boy)
                       : AssetImage(girl),
                               radius: ScreenUtil().radius(25),
                             ),
                             SizedBox(
                               height: ScreenUtil().setHeight(6),
                             ),
-                            anotherUser["package_id"] == null?
-                            Container():
-                            anotherUser["package_id"] != 4?
-                            SvgPicture.asset(
-                              anotherUser["package_id"]==3?crown:
-                              anotherUser["package_id"] == 2?stars:star,
-                              height: ScreenUtil().setHeight(15),
-                              fit: BoxFit.contain,
-                            ):Image.asset(stars3,height: ScreenUtil().setHeight(15),
-                              fit: BoxFit.contain,),
+
 
                           ],
                         ),
@@ -232,7 +231,7 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${profileProvider.calls[index]['firstuser']['id']!=profileProvider.id?profileProvider.calls[index]['firstuser']['name']:profileProvider.calls[index]['seconduser']['name']}',
+                                  '${profileProvider.callers[index]['name']}',
                                   overflow: TextOverflow.visible,
                                   softWrap: true,
                                   style: TextStyle(
@@ -241,20 +240,7 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
                                     fontSize: fontSize,
                                   ),
                                 ),
-                                Text(
-                                  '${mapDate(profileProvider.calls[index]['created_at'].toString().substring(0,10))}',
-                                  style: TextStyle(
-                                      color: textColor,
-                                      fontFamily: mainFont,
-                                      fontSize: smallFontSize),
-                                ),
-                                Text(
-                                  '${profileProvider.calls[index]['call_min']??''}',
-                                  style: TextStyle(
-                                      color: textColor,
-                                      fontFamily: mainFont,
-                                      fontSize: fontSize),
-                                ),
+
                               ],
                             ),
                           ),
@@ -262,14 +248,15 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
                         Column(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            Icon(Icons.message,
-                                color: mainColor,
-                                size: ScreenUtil().setWidth(35)),
-                            Text('${profileProvider.calls[index]['topic']['name'][Get.locale.languageCode]}',
-                                style: TextStyle(
-                                    color: mainColor,
-                                    fontSize: fontSize,
-                                    fontFamily: mainFont)),
+                            InkWell(
+                              child: Icon(Icons.call,
+                                  color: Colors.green,
+                                  size: ScreenUtil().setWidth(30)),
+                              onTap: (){
+                                profileProvider.call(profileProvider.callers[index]['id'].toString(), context);
+                              },
+                            )
+
                           ],
                         )
                       ],
@@ -278,10 +265,10 @@ class _AllCallsScreenState extends State<AllCallsScreen> {
                 ),
               ),
             ),
-            onTap: (){
+            /*onTap: (){
               showUserPopUp(context,
                   profileProvider.calls[index]['firstuser']!=profileProvider.id?profileProvider.calls[index]['firstuser']:profileProvider.calls[index]['seconduser']);
-            },
+            },*/
           );
         },
       ),

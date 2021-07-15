@@ -7,6 +7,7 @@ class NationProvider with ChangeNotifier {
   ProfileHelper profileHelper = ProfileHelper();
   String _name;
   int _id;
+  String selectedId;
 
   NationProvider() {
     profileHelper.getProfile().whenComplete(() {

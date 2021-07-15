@@ -1,7 +1,7 @@
 name: discussion
 description: A new Flutter project.
 publish_to: 'none'
-version: 1.0.7+8
+version: 1.0.9+10
 
 environment:
   sdk: ">=2.7.0 <3.0.0"
@@ -33,6 +33,9 @@ dependencies:
   share: ^2.0.4
   flutter_blurhash: ^0.6.0
   rflutter_alert: ^1.1.0
+  firebase_messaging: ^10.0.3
+  flutter_local_notifications: ^6.0.0
+  firebase_core : ^1.1.0
 
 
 dev_dependencies:

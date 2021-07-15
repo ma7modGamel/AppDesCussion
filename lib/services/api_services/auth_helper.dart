@@ -74,17 +74,21 @@ class AuthHelper {
     final value = prefs.get(key) ?? 0;
 
     String myUrl = "$serverUrl/logout";
-    final response = await http.post(Uri.parse(myUrl), headers: {
-      'Accept': 'application/json',
-      'Accept-Language': Get.locale.languageCode,
-      'Authorization': "Bearer $value"
-    }, body: {});
-    info = json.decode(response.body);
-    status = info["success"];
+    try{
+      final response = await http.post(Uri.parse(myUrl), headers: {
+        'Accept': 'application/json',
+        'Accept-Language': Get.locale.languageCode,
+        'Authorization': "Bearer $value"
+      }, body: {});
+      info = json.decode(response.body);
+      status = info["success"];
+    }catch(e){
+
+    }
     print(info);
     if (status == true) {
       databaseHelper.setValue("token", "0");
-    } else if (info["message"] == "unauthrized") {
+    } else if (info == null || info["message"] == "unauthrized") {
       databaseHelper.setValue("token", "0");
     }
   }

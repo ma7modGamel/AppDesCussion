@@ -61,10 +61,10 @@ class AuthProvider extends BaseProvider {
   void logout() {
     setState(ProviderState.Loading);
     authHelper.logoutData().whenComplete(() {
-      if (authHelper.status == true) {
+      //if (authHelper.status == true) {
         showToast(msg: 'إلى اللقاء');
         Get.to(() => LoginScreen());
-      }
+      //}
     });
   }
 
